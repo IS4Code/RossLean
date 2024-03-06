@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34525.116
@@ -37,11 +37,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Smarttributes", "RossLean.S
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Smarttributes.Package", "RossLean.Smarttributes\Smarttributes.Package\Smarttributes.Package.csproj", "{A5692AEC-7F14-4678-ACDC-575A8AC4B75D}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DynamicGenericBridge", "RossLean.DynamicGenericBridge\DynamicGenericBridge\DynamicGenericBridge.csproj", "{6ED4FD35-F5C6-4BEF-9DBA-6F0B4E3F8725}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RossLean.GenericsAnalyzer", "RossLean.GenericsAnalyzer", "{60B94876-E0FA-450C-95EE-3DAD2BFCCBEC}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RossLean.NameOn", "RossLean.NameOn", "{9ED2BAB3-650E-4F6C-8AFC-13BA42CDDAD9}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RossLean.Smarttributes", "RossLean.Smarttributes", "{C2BF4B3E-2426-4605-B2E3-B81E499A015E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RossLean.DynamicGenericBridge", "RossLean.DynamicGenericBridge", "{D67C6132-4B04-4D83-B30C-A0803E6BF129}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RossLean.Common.Test", "RossLean.Common\RossLean.Common.Test.csproj", "{DD941097-E080-40E3-B542-4A99F2F376BF}"
 EndProject
@@ -129,6 +133,10 @@ Global
 		{A5692AEC-7F14-4678-ACDC-575A8AC4B75D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5692AEC-7F14-4678-ACDC-575A8AC4B75D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A5692AEC-7F14-4678-ACDC-575A8AC4B75D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6ED4FD35-F5C6-4BEF-9DBA-6F0B4E3F8725}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6ED4FD35-F5C6-4BEF-9DBA-6F0B4E3F8725}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6ED4FD35-F5C6-4BEF-9DBA-6F0B4E3F8725}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6ED4FD35-F5C6-4BEF-9DBA-6F0B4E3F8725}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DD941097-E080-40E3-B542-4A99F2F376BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DD941097-E080-40E3-B542-4A99F2F376BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DD941097-E080-40E3-B542-4A99F2F376BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -159,6 +167,7 @@ Global
 		{3A19ADD0-97CD-41B0-835F-FA31C2DF7A0A} = {C2BF4B3E-2426-4605-B2E3-B81E499A015E}
 		{BF5E7A76-F37D-4FDB-BB4A-C0B2C526B798} = {C2BF4B3E-2426-4605-B2E3-B81E499A015E}
 		{A5692AEC-7F14-4678-ACDC-575A8AC4B75D} = {C2BF4B3E-2426-4605-B2E3-B81E499A015E}
+		{6ED4FD35-F5C6-4BEF-9DBA-6F0B4E3F8725} = {D67C6132-4B04-4D83-B30C-A0803E6BF129}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {738D0B02-6916-4477-B9F6-ACD767186943}
