@@ -5,7 +5,7 @@
         public const string DynamicBridgeAttribute = "RossLean.DynamicBridgeAttribute";
         public const string DynamicBridgeMethodAttribute = "RossLean.DynamicBridgeMethodAttribute";
 
-        const string DynamicBridgeMethodAttributeAttributes = "Attributes";
+        const string DynamicBridgeMethodAttributeModifiers = "Modifiers";
         const string DynamicBridgeMethodAttributeIgnoreUnbound = "IgnoreUnbound";
     }
 
@@ -22,15 +22,15 @@ namespace RossLean
     [Conditional(""DYNAMIC_GENERIC_BRIDGE_ATTRIBUTES"")]
     internal sealed class DynamicBridgeAttribute : Attribute
     {
-        public Type? LoweredType { get; }
+        public Type? SimplifiedType { get; }
 
         public DynamicBridgeAttribute()
         {
         }
 
-        public DynamicBridgeAttribute(Type loweredType)
+        public DynamicBridgeAttribute(Type simplifiedType)
         {
-            LoweredType = loweredType;
+            SimplifiedType = simplifiedType;
         }
     }
 
@@ -39,7 +39,7 @@ namespace RossLean
     internal sealed class DynamicBridgeMethodAttribute : Attribute
     {
         public string? MethodName { get; }
-        public string? Attributes { get; set; }
+        public string? Modifiers { get; set; }
         public bool IgnoreUnbound { get; set; }
 
         public DynamicBridgeMethodAttribute()

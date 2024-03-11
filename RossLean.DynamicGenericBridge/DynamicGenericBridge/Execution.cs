@@ -226,7 +226,7 @@ namespace RossLean.DynamicGenericBridge
 
         private void ProcessMethod(INamedTypeSymbol declaringType, IMethodSymbol method, IndentedTextWriter writer)
         {
-            var loweredParams = new Dictionary<ITypeParameterSymbol, ITypeSymbol?>(typeComparer);
+            var simplifiedParams = new Dictionary<ITypeParameterSymbol, ITypeSymbol?>(typeComparer);
 
             foreach(var param in method.TypeParameters)
             {
@@ -241,8 +241,8 @@ namespace RossLean.DynamicGenericBridge
                     var args = attr.ConstructorArguments;
                     if(args.Length == 0)
                     {
-                        // No lowered type specified
-                        loweredParams[param] = null;
+                        // No simplified type specified
+                        simplifiedParams[param] = null;
                         continue;
                     }
                     else if(args.Length == 1)
@@ -250,8 +250,8 @@ namespace RossLean.DynamicGenericBridge
                         var arg = args[0];
                         if(arg.Kind == TypedConstantKind.Type)
                         {
-                            // Lowered type specified
-                            loweredParams[param] = (ITypeSymbol)arg.Value!;
+                            // Simplified type specified
+                            simplifiedParams[param] = (ITypeSymbol)arg.Value!;
                             continue;
                         }
                     }
@@ -263,7 +263,7 @@ namespace RossLean.DynamicGenericBridge
 
             var methodAttr = method.GetAttributes().FirstOrDefault(a => typeComparer.Equals(a.AttributeClass, methodAttributeType));
 
-            if(loweredParams.Count == 0)
+            if(simplifiedParams.Count == 0)
             {
                 if(methodAttr != null)
                 {
@@ -293,7 +293,7 @@ namespace RossLean.DynamicGenericBridge
             // But without the class
             targetMethodId = targetMethodId.Substring(declaringType.GetDocumentationCommentId()!.Length + 1);
 
-            string bridgeAttributes = FormatAccessibility(method.DeclaredAccessibility);
+            string bridgeModifiers = FormatAccessibility(method.DeclaredAccessibility);
             string bridgeName = method.Name;
             string bridgeNameDisplay = method.ToDisplayString(nameDisplay);
             bool ignoreUnbound = false;
@@ -316,14 +316,14 @@ namespace RossLean.DynamicGenericBridge
                     }
                 }
 
-                if(methodAttr.NamedArguments.FirstOrDefault(pair => pair.Key == DynamicBridgeMethodAttributeAttributes) is { Value: var attrs })
+                if(methodAttr.NamedArguments.FirstOrDefault(pair => pair.Key == DynamicBridgeMethodAttributeModifiers) is { Value: var attrs })
                 {
                     if(!(attrs.Kind is TypedConstantKind.Primitive or TypedConstantKind.Error && (attrs.IsNull || typeComparer.Equals(attrs.Type, stringType))))
                     {
-                        Error(6, $"Method '{method.ToDisplayString(errorDisplay)}' has incorrectly used DynamicBridgeMethod.{DynamicBridgeMethodAttributeAttributes}.", method);
+                        Error(6, $"Method '{method.ToDisplayString(errorDisplay)}' has incorrectly used DynamicBridgeMethod.{DynamicBridgeMethodAttributeModifiers}.", method);
                         return;
                     }
-                    bridgeAttributes = (attrs.Value as string) ?? bridgeAttributes;
+                    bridgeModifiers = (attrs.Value as string) ?? bridgeModifiers;
                 }
 
                 if(methodAttr.NamedArguments.FirstOrDefault(pair => pair.Key == DynamicBridgeMethodAttributeIgnoreUnbound) is { Value: var unbound })
@@ -441,7 +441,7 @@ namespace RossLean.DynamicGenericBridge
                 targetMethodNameDisplay = bridgeTargetName;
             }
 
-            var retainedTypeParametersCount = method.TypeParameters.Count(p => !loweredParams.ContainsKey(p));
+            var retainedTypeParametersCount = method.TypeParameters.Count(p => !simplifiedParams.ContainsKey(p));
 
             // State the dynamic dependency
             writer.WriteLine($"[{dynamicDependencyType}({SymbolDisplay.FormatLiteral(targetMethodId, true)})]");
@@ -534,9 +534,9 @@ namespace RossLean.DynamicGenericBridge
             {
                 candidate = null;
 
-                if(!String.IsNullOrEmpty(bridgeAttributes))
+                if(!String.IsNullOrEmpty(bridgeModifiers))
                 {
-                    writer.Write($"{bridgeAttributes} ");
+                    writer.Write($"{bridgeModifiers} ");
                 }
 
                 if(method.IsStatic)
@@ -555,18 +555,18 @@ namespace RossLean.DynamicGenericBridge
                 }
                 else
                 {
-                    // Return type needs lowering if it contains the bridged type parameters
-                    var loweredReturnType = LowerType(method.ReturnType, true);
-                    returnType = loweredReturnType?.ToDisplayString(typeDisplay) ?? "object";
+                    // Return type needs simplifying if it contains the bridged type parameters
+                    var simplifiedReturnType = SimplifyType(method.ReturnType, true);
+                    returnType = simplifiedReturnType?.ToDisplayString(typeDisplay) ?? "object";
                     if(method.IsAsync)
                     {
-                        if(typeComparer.Equals(loweredReturnType, taskType) || typeComparer.Equals(loweredReturnType, valueTaskType))
+                        if(typeComparer.Equals(simplifiedReturnType, taskType) || typeComparer.Equals(simplifiedReturnType, valueTaskType))
                         {
-                            // Non-returning or lowered to non-returning
+                            // Non-returning or simplified to non-returning
                             isAsync = true;
                             returnsValueType = null;
                         }
-                        else if(loweredReturnType is INamedTypeSymbol { IsGenericType: true, ConstructedFrom: var typeDefinition, TypeArguments: { Length: 1 } typeArgs } && (typeComparer.Equals(typeDefinition, genericTaskType) || typeComparer.Equals(typeDefinition, genericValueTaskType)))
+                        else if(simplifiedReturnType is INamedTypeSymbol { IsGenericType: true, ConstructedFrom: var typeDefinition, TypeArguments: { Length: 1 } typeArgs } && (typeComparer.Equals(typeDefinition, genericTaskType) || typeComparer.Equals(typeDefinition, genericValueTaskType)))
                         {
                             // Task with a value
                             isAsync = true;
@@ -599,7 +599,7 @@ namespace RossLean.DynamicGenericBridge
 
                 writer.Write($"{returnType} {bridgeNameDisplay}");
 
-                var retainedTypeParameters = method.TypeParameters.Where(p => !loweredParams.ContainsKey(p)).ToList();
+                var retainedTypeParameters = method.TypeParameters.Where(p => !simplifiedParams.ContainsKey(p)).ToList();
 
                 if(retainedTypeParameters.Count > 0)
                 {
@@ -626,27 +626,27 @@ namespace RossLean.DynamicGenericBridge
                     {
                         writer.Write(", ");
                     }
-                    if(param.IsParams && !NeedsLowering(param.Type))
+                    if(param.IsParams && !NeedsSimplifying(param.Type))
                     {
                         // Replicate "params" (only if identical type, otherwise it may never be compatible when compiler-constructed)
                         writer.Write("params ");
                     }
                     if(param.RefKind != RefKind.None)
                     {
-                        if(NeedsLowering(param.Type))
+                        if(NeedsSimplifying(param.Type))
                         {
                             // Type of reference must match
                             Error(7, $"Method '{method.ToDisplayString(errorDisplay)}' has a reference parameter '{param.ToDisplayString(errorDisplay)}' that requires dynamic dispatch, which is not supported.", param);
                         }
                         writer.Write(FormatRefKind(param.RefKind));
                     }
-                    // Lower parameter type if it contains the bridged type parameters
-                    var paramType = LowerType(param.Type)?.ToDisplayString(typeDisplay) ?? "object";
+                    // Simplify parameter type if it contains the bridged type parameters
+                    var paramType = SimplifyType(param.Type)?.ToDisplayString(typeDisplay) ?? "object";
                     writer.Write(paramType);
                     writer.Write($" {param.ToDisplayString(nameDisplay)}");
-                    if(param.HasExplicitDefaultValue && (!NeedsLowering(param.Type) || param.ExplicitDefaultValue == null))
+                    if(param.HasExplicitDefaultValue && (!NeedsSimplifying(param.Type) || param.ExplicitDefaultValue == null))
                     {
-                        // Default value is retained only if it was not lowered, or was null/default (but there are no generic types supporting constants)
+                        // Default value is retained only if it was not simplified, or was null/default (but there are no generic types supporting constants)
                         var defaultValue = param.ExplicitDefaultValue;
                         writer.Write(" = ");
                         switch(defaultValue)
@@ -689,8 +689,8 @@ namespace RossLean.DynamicGenericBridge
                         constraints.Add("unmanaged");
                     }
                     // Recover as many constraints as possible
-                    var validConstraints = typeParameter.ConstraintTypes.Select(t => LowerType(t));
-                    // If lowered to object or ValueType, remove (invalid constraint)
+                    var validConstraints = typeParameter.ConstraintTypes.Select(t => SimplifyType(t));
+                    // If simplified to object or ValueType, remove (invalid constraint)
                     validConstraints = validConstraints.Where(t => t != null && !typeComparer.Equals(valueType));
                     constraints.AddRange(validConstraints.Select(t => t!.ToDisplayString(typeDisplay)));
                     if(typeParameter.HasConstructorConstraint)
@@ -729,7 +729,7 @@ namespace RossLean.DynamicGenericBridge
             writer.Write(targetMethodNameDisplay);
             // No type arguments since they must be inferred
             writer.Write("(");
-            var loweredMethodParams = new List<IParameterSymbol>();
+            var simplifiedMethodParams = new List<IParameterSymbol>();
             for(int i = 0; i < method.Parameters.Length; i++)
             {
                 var targetParam = method.Parameters[i];
@@ -741,20 +741,20 @@ namespace RossLean.DynamicGenericBridge
                 }
                 // Pass by the same reference
                 writer.Write(FormatRefKind(definitionParam.RefKind));
-                if(NeedsLowering(targetParam.Type, inferrableParams))
+                if(NeedsSimplifying(targetParam.Type, inferrableParams))
                 {
-                    // Parameter type was lowered, needs dynamic dispatch
+                    // Parameter type was simplified, needs dynamic dispatch
                     writer.Write("(dynamic)");
-                    loweredMethodParams.Add(definitionParam);
+                    simplifiedMethodParams.Add(definitionParam);
                 }
                 writer.Write(definitionParam.ToDisplayString(nameDisplay));
             }
             writer.WriteLine(");");
 
-            if(inferrableParams.Count < loweredParams.Count)
+            if(inferrableParams.Count < simplifiedParams.Count)
             {
                 // Some type parameters did not appear
-                var missing = loweredParams.Keys.Where(p => !inferrableParams.Contains(p)).Select(p => p.ToDisplayString(errorDisplay));
+                var missing = simplifiedParams.Keys.Where(p => !inferrableParams.Contains(p)).Select(p => p.ToDisplayString(errorDisplay));
                 Error(8, $"Method '{method.ToDisplayString(errorDisplay)}' cannot not be dynamically bridged because some type parameters could not be resolved at runtime: {String.Join(", ", missing)}. The type parameters must appear in the method's parameter list in order to be inferrable.", method);
             }
 
@@ -802,9 +802,9 @@ namespace RossLean.DynamicGenericBridge
                 writer.Write("throw new ");
                 writer.Write(argumentExceptionType.ToDisplayString(typeDisplay));
                 writer.Write("(");
-                if(loweredMethodParams.Count == 1)
+                if(simplifiedMethodParams.Count == 1)
                 {
-                    var paramType = loweredMethodParams[0].Type;
+                    var paramType = simplifiedMethodParams[0].Type;
                     string? typeofExpression;
                     switch(paramType)
                     {
@@ -831,7 +831,7 @@ namespace RossLean.DynamicGenericBridge
                     }
                     // the parameter name can be provided
                     writer.Write(", nameof(");
-                    writer.Write(loweredMethodParams[0].ToDisplayString(nameDisplay));
+                    writer.Write(simplifiedMethodParams[0].ToDisplayString(nameDisplay));
                     writer.Write(")");
                 }
                 else
@@ -847,9 +847,9 @@ namespace RossLean.DynamicGenericBridge
             writer.Indent--;
             writer.WriteLine("}");
 
-            ITypeSymbol? LowerType(ITypeSymbol type, bool isReturn = false)
+            ITypeSymbol? SimplifyType(ITypeSymbol type, bool isReturn = false)
             {
-                if(!NeedsLowering(type))
+                if(!NeedsSimplifying(type))
                 {
                     return type;
                 }
@@ -859,19 +859,19 @@ namespace RossLean.DynamicGenericBridge
                     // System.Array is the nearest type that does not expose the element type
                     IArrayTypeSymbol => arrayType,
                     // Look for a suitable base type
-                    INamedTypeSymbol named => LowerNamedType(named, isReturn),
+                    INamedTypeSymbol named => SimplifyNamedType(named, isReturn),
                     // Pick the specified one or treat it as a type
-                    ITypeParameterSymbol param => loweredParams[param] ?? LowerTypeParameter(param),
+                    ITypeParameterSymbol param => simplifiedParams[param] ?? SimplifyTypeParameter(param),
                     _ => null
                 };
             }
 
-            ITypeSymbol? LowerNamedType(ITypeSymbol type, bool isReturn)
+            ITypeSymbol? SimplifyNamedType(ITypeSymbol type, bool isReturn)
             {
                 if(type.TypeKind == TypeKind.Interface)
                 {
                     // Look through its interfaces
-                    return LowerInterfaceType(type);
+                    return SimplifyInterfaceType(type);
                 }
                 else if(isReturn && method.IsAsync && type is INamedTypeSymbol { IsGenericType: true, ConstructedFrom: var typeDefinition })
                 {
@@ -896,36 +896,36 @@ namespace RossLean.DynamicGenericBridge
                         // We got object or ValueType, which is too general
                         break;
                     }
-                    if(!NeedsLowering(baseType))
+                    if(!NeedsSimplifying(baseType))
                     {
                         // We got a better base type
                         return baseType;
                     }
                 }
                 // We did not get any suitable base type; look through the interfaces
-                return LowerInterfaceType(type) ??
+                return SimplifyInterfaceType(type) ??
                     // or just use ValueType or object
                     (type.IsValueType ? valueType : null);
             }
 
-            ITypeSymbol? LowerInterfaceType(ITypeSymbol type)
+            ITypeSymbol? SimplifyInterfaceType(ITypeSymbol type)
             {
                 // Check how many direct candidates there are
-                var options = type.Interfaces.Where(i => !NeedsLowering(i)).Take(2).ToList();
+                var options = type.Interfaces.Where(i => !NeedsSimplifying(i)).Take(2).ToList();
                 switch(options.Count)
                 {
                     case 0:
                         // No direct candidates, look in AllInterfaces
                         break;
                     case 1:
-                        // Just a single direct interface that does not need lowering, pick it
+                        // Just a single direct interface that does not need simplifying, pick it
                         return options[0];
                     default:
                         // No obvious choice (consider adding a generic parameter)
                         return null;
                 }
                 // Same for all interfaces
-                options = type.AllInterfaces.Where(i => !NeedsLowering(i)).Take(2).ToList();
+                options = type.AllInterfaces.Where(i => !NeedsSimplifying(i)).Take(2).ToList();
                 if(options.Count == 1)
                 {
                     // Single best choice
@@ -935,23 +935,23 @@ namespace RossLean.DynamicGenericBridge
                 return null;
             }
 
-            ITypeSymbol? LowerTypeParameter(ITypeParameterSymbol param)
+            ITypeSymbol? SimplifyTypeParameter(ITypeParameterSymbol param)
             {
                 // Check how many candidates there are
-                var options = param.ConstraintTypes.Where(p => !NeedsLowering(p)).Take(2).ToList();
+                var options = param.ConstraintTypes.Where(p => !NeedsSimplifying(p)).Take(2).ToList();
                 switch(options.Count)
                 {
                     case 0:
-                        // No direct candidates, lower all constraints
+                        // No direct candidates, simplify all constraints
                         break;
                     case 1:
-                        // Just a single direct type that does not need lowering, pick it
+                        // Just a single direct type that does not need simplifying, pick it
                         return options[0];
                     default:
                         // No obvious choice (consider adding a generic parameter)
                         return null;
                 }
-                options = param.ConstraintTypes.Select(p => LowerType(p)).Where(t => t != null).Take(2).ToList()!;
+                options = param.ConstraintTypes.Select(p => SimplifyType(p)).Where(t => t != null).Take(2).ToList()!;
                 if(options.Count == 1)
                 {
                     // Single best choice
@@ -959,28 +959,28 @@ namespace RossLean.DynamicGenericBridge
                 }
                 if(param.HasValueTypeConstraint || param.HasUnmanagedTypeConstraint)
                 {
-                    // At least lower to ValueType
+                    // At least simplify to ValueType
                     return valueType;
                 }
                 return null;
             }
 
-            bool NeedsLowering(ITypeSymbol type, ICollection<ITypeParameterSymbol>? containedParameters = null)
+            bool NeedsSimplifying(ITypeSymbol type, ICollection<ITypeParameterSymbol>? containedParameters = null)
             {
                 // Check if type contains a bridged parameter
                 return type switch
                 {
                     // Look for element type in array
-                    IArrayTypeSymbol array => NeedsLowering(array.ElementType, containedParameters),
+                    IArrayTypeSymbol array => NeedsSimplifying(array.ElementType, containedParameters),
                     // Look for generic parameters
                     INamedTypeSymbol named => containedParameters != null
                     // When visited collection is given, it needs to be evaluated fully
-                    ? named.TypeArguments.Count(a => NeedsLowering(a, containedParameters)) != 0
-                    : named.TypeArguments.Any(a => NeedsLowering(a)),
+                    ? named.TypeArguments.Count(a => NeedsSimplifying(a, containedParameters)) != 0
+                    : named.TypeArguments.Any(a => NeedsSimplifying(a)),
                     // Unsupported
                     IPointerTypeSymbol or IFunctionPointerTypeSymbol => Error(9, $"Pointer type '{type.ToDisplayString(typeDisplay)}' cannot be used with the DynamicBridge attribute.", method),
                     // Return if bridged
-                    ITypeParameterSymbol param => loweredParams.ContainsKey(param) && AddParam(containedParameters, param),
+                    ITypeParameterSymbol param => simplifiedParams.ContainsKey(param) && AddParam(containedParameters, param),
                     _ => true
                 };
             }
